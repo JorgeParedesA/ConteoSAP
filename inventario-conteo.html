@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ConteoSAP</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0f2f5;--white:#fff;--border:#e0e3ea;--border2:#c8ccd8;
+  --accent:#0057ff;--accent-l:#e8eeff;--accent-d:#0047d4;
+  --green:#00875a;--green-l:#e3fcef;
+  --warn:#ff8b00;--warn-l:#fff4e5;
+  --danger:#de350b;--danger-l:#ffebe6;
+  --text:#172b4d;--text2:#5e6c84;--text3:#97a0af;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --r:12px;--r-sm:8px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;}
+
+/* ── LOGIN ── */
+#loginScreen{position:fixed;inset:0;background:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;padding:32px 24px;}
+#loginScreen.hide{display:none;}
+.login-logo{font-size:48px;margin-bottom:16px;}
+.login-title{font-family:var(--mono);font-size:22px;font-weight:700;color:white;margin-bottom:6px;}
+.login-sub{font-size:13px;color:rgba(255,255,255,.7);margin-bottom:36px;text-align:center;}
+.login-card{background:white;border-radius:var(--r);padding:24px;width:100%;max-width:340px;box-shadow:var(--sh-md);}
+.login-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
+.login-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:13px 14px;font-size:15px;color:var(--text);font-family:var(--sans);outline:none;margin-bottom:14px;transition:border-color .15s;}
+.login-input:focus{border-color:var(--accent);}
+.pin-row{display:flex;gap:10px;margin-bottom:20px;}
+.pin-digit{flex:1;height:54px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--mono);font-size:24px;font-weight:700;text-align:center;color:var(--text);outline:none;transition:border-color .15s;}
+.pin-digit:focus{border-color:var(--accent);}
+.login-btn{width:100%;background:var(--accent);color:white;border:none;border-radius:var(--r-sm);padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:background .15s;}
+.login-btn:active{background:var(--accent-d);}
+.login-err{font-size:12px;color:var(--danger);text-align:center;margin-top:10px;min-height:18px;}
+.login-hint{font-size:11px;color:var(--text3);text-align:center;margin-top:12px;}
+
+/* ── HEADER ── */
+.header{background:var(--accent);padding:13px 18px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;}
+.h-l{display:flex;align-items:center;gap:10px;}
+.h-ico{width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.h-title{font-family:var(--mono);font-size:15px;font-weight:700;color:white;}
+.h-sub{font-size:10px;color:rgba(255,255,255,.65);margin-top:1px;}
+.h-r{display:flex;align-items:center;gap:8px;}
+.pill{background:rgba(255,255,255,.2);color:white;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;}
+.sync-btn{background:rgba(255,255,255,.15);border:none;color:white;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.sync-btn.syncing{animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── SBAR ── */
+.sbar{background:var(--accent-l);border-bottom:1px solid #c5d3ff;padding:7px 18px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--accent);position:sticky;top:58px;z-index:99;}
+.sbar strong{font-weight:600;}
+.sdot{width:6px;height:6px;background:var(--accent);border-radius:50%;flex-shrink:0;}
+.sync-status{margin-left:auto;font-size:10px;font-family:var(--mono);}
+.sync-status.ok{color:var(--green);}
+.sync-status.err{color:var(--danger);}
+.sync-status.pending{color:var(--warn);}
+
+/* ── TABS ── */
+.tabs{background:var(--white);border-bottom:2px solid var(--border);display:flex;position:sticky;top:95px;z-index:98;}
+.tab{flex:1;padding:10px 4px 9px;text-align:center;font-size:10px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .18s;user-select:none;}
+.tab .ti{font-size:16px;display:block;margin-bottom:1px;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;}
+
+/* ── PANELS ── */
+.panel{display:none;padding:14px;}
+.panel.active{display:block;}
+
+/* ── SLABEL ── */
+.slabel{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);margin:0 0 8px;padding:0 2px;}
+
+/* ── CARD ── */
+.card{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:15px;margin-bottom:12px;}
+
+/* ── FIELDS ── */
+.field{margin-bottom:12px;}
+.field:last-child{margin-bottom:0;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
+.req{color:var(--danger);margin-left:2px;}
+.field input,.field textarea,.field select{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:11px 13px;font-size:15px;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .15s,background .15s;-webkit-appearance:none;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent);background:white;}
+.field input.big{font-family:var(--mono);font-size:22px;font-weight:700;padding:14px;}
+.field textarea{resize:none;min-height:76px;font-size:14px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ── TOGGLE ── */
+.trow{display:flex;align-items:center;justify-content:space-between;padding:12px 13px;background:var(--bg);border-radius:var(--r-sm);border:1.5px solid var(--border);cursor:pointer;margin-bottom:12px;}
+.tinfo strong{display:block;font-size:14px;color:var(--text);}
+.tinfo span{font-size:12px;color:var(--text2);}
+.sw{width:42px;height:24px;background:var(--border2);border-radius:12px;position:relative;transition:background .2s;flex-shrink:0;}
+.sw::after{content:'';position:absolute;width:18px;height:18px;background:white;border-radius:50%;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.sw.on{background:var(--accent);}
+.sw.on::after{transform:translateX(18px);}
+.sf{display:none;}
+.sf.show{display:block;animation:sd .18s ease;}
+@keyframes sd{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── FOTO ── */
+.foto-btn{width:100%;border:2px dashed var(--border2);border-radius:var(--r-sm);padding:16px;text-align:center;cursor:pointer;position:relative;background:var(--bg);transition:border-color .15s;}
+.foto-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+.foto-prev{width:100%;max-height:150px;object-fit:cover;border-radius:var(--r-sm);display:none;}
+.foto-prev.show{display:block;}
+
+/* ── BTNS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 18px;border-radius:var(--r-sm);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:var(--sans);}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--accent);color:white;width:100%;padding:15px;font-size:15px;border-radius:var(--r);}
+.btn-primary:active{background:var(--accent-d);}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text2);font-size:13px;padding:8px 14px;}
+.btn-ghost:active{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:transparent;border:1.5px solid var(--danger);color:var(--danger);width:100%;padding:13px;}
+.btn-green{background:var(--green);color:white;width:100%;padding:13px;margin-bottom:10px;}
+.btn-sm{padding:7px 12px;font-size:12px;}
+
+/* ── IMM NOTE ── */
+.imm-note{display:flex;gap:10px;background:var(--green-l);border-left:3px solid var(--green);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;color:#006644;margin-bottom:14px;}
+
+/* ── PROGRESS ── */
+.prog-box{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:12px;}
+.prog-head{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:8px;}
+.prog-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--green);border-radius:4px;transition:width .4s;}
+.prog-stats{display:flex;gap:8px;margin-top:8px;}
+.prog-stat{flex:1;text-align:center;background:var(--bg);border-radius:var(--r-sm);padding:8px 4px;}
+.prog-stat-val{font-family:var(--mono);font-size:16px;font-weight:700;}
+.prog-stat-lbl{font-size:10px;color:var(--text2);margin-top:2px;}
+
+/* ══ TARJETAS DE CONTEO (LISTA MAESTRA) ══ */
+.cm-card{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:10px;overflow:hidden;border-left:4px solid var(--border2);}
+.cm-card.pendiente{border-left-color:var(--border2);}
+.cm-card.contado{border-left-color:var(--green);}
+.cm-card.diferencia{border-left-color:var(--warn);}
+.cm-header{padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+.cm-status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:2px solid var(--border2);}
+.cm-card.contado .cm-status-dot{background:var(--green);border-color:var(--green);}
+.cm-card.diferencia .cm-status-dot{background:var(--warn);border-color:var(--warn);}
+.cm-main{flex:1;min-width:0;}
+.cm-code{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text);}
+.cm-desc{font-size:12px;color:var(--text2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cm-right{text-align:right;flex-shrink:0;}
+.cm-sap-qty{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text2);}
+.cm-um{font-size:10px;color:var(--text3);}
+.cm-counted{font-size:12px;font-weight:600;color:var(--green);}
+.cm-diff{font-family:var(--mono);font-size:11px;font-weight:700;}
+.cm-diff.pos{color:var(--green);}
+.cm-diff.neg{color:var(--danger);}
+.cm-chevron{font-size:12px;color:var(--text3);transition:transform .2s;margin-left:4px;}
+.cm-card.open .cm-chevron{transform:rotate(180deg);}
+
+/* Formulario expandible dentro de tarjeta */
+.cm-form{display:none;padding:0 14px 14px;border-top:1px solid var(--border);}
+.cm-card.open .cm-form{display:block;animation:sd .18s ease;}
+.cm-info-row{display:flex;gap:6px;flex-wrap:wrap;padding:10px 0 12px;}
+.cm-badge{font-size:11px;padding:4px 9px;border-radius:4px;font-family:var(--mono);font-weight:600;}
+.cb-ubi{background:#f0f4ff;color:var(--accent);}
+.cb-um{background:var(--bg);color:var(--text2);}
+.cb-sap{background:var(--green-l);color:var(--green);}
+.cm-qty-row{display:flex;align-items:flex-end;gap:10px;margin-bottom:12px;}
+.cm-qty-wrap{flex:1;}
+.cm-qty-wrap label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
+.cm-qty-input{width:100%;background:var(--bg);border:2px solid var(--border);border-radius:var(--r-sm);padding:13px;font-family:var(--mono);font-size:24px;font-weight:700;color:var(--text);outline:none;text-align:center;transition:border-color .15s;}
+.cm-qty-input:focus{border-color:var(--accent);background:white;}
+.cm-qty-sap{text-align:center;flex-shrink:0;padding-bottom:4px;}
+.cm-qty-sap-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text3);}
+.cm-qty-sap-lbl{font-size:10px;color:var(--text3);}
+.cm-obs-wrap label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
+.cm-obs-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-size:14px;color:var(--text);font-family:var(--sans);resize:none;min-height:64px;outline:none;transition:border-color .15s;}
+.cm-obs-input:focus{border-color:var(--accent);background:white;}
+.cm-actions{display:flex;gap:8px;margin-top:12px;}
+.cm-save-btn{flex:1;background:var(--accent);color:white;border:none;border-radius:var(--r-sm);padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:background .15s;}
+.cm-save-btn:active{background:var(--accent-d);}
+.cm-clear-btn{background:transparent;border:1.5px solid var(--border);color:var(--text2);border-radius:var(--r-sm);padding:10px 14px;font-size:12px;cursor:pointer;font-family:var(--sans);}
+.cm-saved-ts{font-size:10px;color:var(--green);font-family:var(--mono);margin-top:8px;display:flex;align-items:center;gap:4px;}
+
+/* FOTO EN TARJETA DE CONTEO */
+.cm-foto-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;margin-top:12px;display:block;}
+.cm-foto-btn{width:100%;border:2px dashed var(--border2);border-radius:var(--r-sm);padding:12px;text-align:center;cursor:pointer;position:relative;background:var(--bg);transition:border-color .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.cm-foto-btn:active{border-color:var(--accent);background:var(--accent-l);}
+.cm-foto-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+.cm-foto-txt{font-size:12px;color:var(--text2);}
+.cm-foto-prev-wrap{position:relative;margin-top:8px;}
+.cm-foto-prev{width:100%;max-height:140px;object-fit:cover;border-radius:var(--r-sm);border:1.5px solid var(--border);display:block;}
+.cm-foto-del{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:white;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;}
+
+/* ── REG CARDS (Mis Conteos) ── */
+.reg-card{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:13px;margin-bottom:9px;border-left:4px solid var(--accent);}
+.reg-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;}
+.reg-code{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent);}
+.reg-seq{font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--bg);padding:2px 6px;border-radius:4px;}
+.reg-qty{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--text);}
+.reg-ubi{font-size:12px;color:var(--text2);margin-bottom:5px;}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px;}
+.badge{font-size:10px;padding:3px 8px;border-radius:4px;font-family:var(--mono);font-weight:600;}
+.b-green{background:var(--green-l);color:var(--green);}
+.b-warn{background:var(--warn-l);color:var(--warn);}
+.b-red{background:var(--danger-l);color:var(--danger);}
+.b-gray{background:var(--bg);color:var(--text2);}
+.reg-obs{font-size:12px;color:var(--text2);background:var(--warn-l);border-radius:6px;padding:7px 10px;margin-bottom:5px;}
+.reg-ts{font-size:10px;color:var(--text3);font-family:var(--mono);}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat-box{background:var(--white);box-shadow:var(--sh);border-radius:var(--r);padding:13px;text-align:center;}
+.stat-val{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--accent);}
+.stat-lbl{font-size:11px;color:var(--text2);margin-top:3px;}
+
+/* ── SEARCH ── */
+.srch{position:relative;margin-bottom:12px;}
+.srch input{width:100%;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 14px 10px 37px;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;}
+.srch input:focus{border-color:var(--accent);}
+.srch-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;}
+
+/* ── GOOGLE SHEETS CONFIG ── */
+.sheets-status{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border-radius:var(--r-sm);border:1.5px solid var(--border);margin-bottom:12px;}
+.sheets-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sheets-dot.ok{background:var(--green);}
+.sheets-dot.no{background:var(--text3);}
+.sheets-dot.err{background:var(--danger);}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:40px 24px;color:var(--text3);}
+.empty-ico{font-size:40px;opacity:.4;margin-bottom:10px;}
+
+/* ── MODAL ── */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:flex-end;justify-content:center;}
+.modal.show{display:flex;}
+.mbox{background:white;border-radius:var(--r) var(--r) 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:20px;}
+.mbox-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.mbox-sub{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.5;}
+
+/* ── DANGER ZONE ── */
+.dzone{border:1.5px solid #ffd2cc;border-radius:var(--r);padding:15px;margin-top:4px;}
+.dzone-title{font-size:11px;font-weight:700;color:var(--danger);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.dzone-desc{font-size:12px;color:var(--text2);margin-bottom:12px;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:white;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:600;z-index:9999;transition:transform .28s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:var(--sh-md);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{background:var(--green);}
+.toast.err{background:var(--danger);}
+.toast.warn{background:var(--warn);}
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginScreen">
+  <div class="login-logo">📦</div>
+  <div class="login-title">ConteoSAP</div>
+  <div class="login-sub">Sistema de Inventario Físico<br>¿Cómo te llamas?</div>
+  <div class="login-card">
+    <div class="login-label">Tu nombre</div>
+    <input class="login-input" type="text" id="loginNom" placeholder="Ej: Carlos Pérez"
+      autocomplete="name" autocapitalize="words"
+      onkeydown="if(event.key==='Enter') intentarLogin()">
+    <button class="login-btn" onclick="intentarLogin()">Ingresar →</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="appShell" style="display:none;">
+
+<div class="header">
+  <div class="h-l">
+    <div class="h-ico">📦</div>
+    <div>
+      <div class="h-title">ConteoSAP</div>
+      <div class="h-sub" id="hSub">Inventario Físico</div>
+    </div>
+  </div>
+  <div class="h-r">
+    <button class="sync-btn" id="syncBtn" onclick="sincronizarSheets()" title="Sincronizar con Google Sheets">☁️</button>
+    <div class="pill" id="hCount">0</div>
+  </div>
+</div>
+
+<div class="sbar">
+  <div class="sdot"></div>
+  <div><strong id="sbNom">—</strong> · <span id="sbRol">—</span></div>
+  <div class="sync-status" id="syncStatus">— Sin sincronizar</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('lista')"><span class="ti">✅</span>Conteo</div>
+  <div class="tab" onclick="switchTab('misconteos')"><span class="ti">📋</span>Mis Conteos</div>
+  <div class="tab" onclick="switchTab('libre')"><span class="ti">✏️</span>Libre</div>
+  <div class="tab" onclick="switchTab('config')"><span class="ti">⚙️</span>Config</div>
+</div>
+
+<!-- ══ PANEL: LISTA / CONTEO ══ -->
+<div class="panel active" id="panel-lista">
+
+  <div class="prog-box">
+    <div class="prog-head">
+      <span>Progreso del inventario</span>
+      <span id="progTxt">0 / 0</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="prog-stats">
+      <div class="prog-stat"><div class="prog-stat-val" style="color:var(--green)" id="psOk">0</div><div class="prog-stat-lbl">Contados</div></div>
+      <div class="prog-stat"><div class="prog-stat-val" style="color:var(--warn)" id="psDiff">0</div><div class="prog-stat-lbl">Diferencias</div></div>
+      <div class="prog-stat"><div class="prog-stat-val" style="color:var(--text3)" id="psPend">0</div><div class="prog-stat-lbl">Pendientes</div></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <button class="btn btn-ghost btn-sm" onclick="abrirCargarLM()" style="flex:1;">➕ Cargar Lista SAP</button>
+    <button class="btn btn-ghost btn-sm" onclick="filtrarLM('todos')" id="fTodos" style="flex:1;">Todos</button>
+    <button class="btn btn-ghost btn-sm" onclick="filtrarLM('pendientes')" id="fPend" style="flex:1;">⏳ Pend.</button>
+  </div>
+
+  <div class="srch"><span class="srch-ico">🔍</span>
+    <input type="text" id="filtroLM" placeholder="Buscar código, descripción, ubicación..." oninput="renderLM()">
+  </div>
+
+  <div id="listaLM">
+    <div class="empty"><div class="empty-ico">📋</div><div style="font-size:13px;">Sin lista cargada.<br>Toca "Cargar Lista SAP" para comenzar.</div></div>
+  </div>
+</div>
+
+<!-- ══ PANEL: MIS CONTEOS ══ -->
+<div class="panel" id="panel-misconteos">
+  <div class="srch"><span class="srch-ico">🔍</span>
+    <input type="text" id="filtroMC" placeholder="Buscar código, ubicación..." oninput="renderMisConteos()">
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:12px;color:var(--text2);" id="mcSub">0 registros</div>
+    <button class="btn btn-ghost btn-sm" onclick="exportarCSV()">⬇️ Excel</button>
+  </div>
+  <div id="listaMC"></div>
+</div>
+
+<!-- ══ PANEL: LIBRE (registro sin lista) ══ -->
+<div class="panel" id="panel-libre">
+  <div class="imm-note">
+    <span>🔒</span><span><strong>Registro sellado:</strong> Timestamp automático, no editable.</span>
+  </div>
+  <div class="card">
+    <div class="slabel">Material</div>
+    <div class="field">
+      <label>Código SAP <span class="req">*</span></label>
+      <input type="text" id="fCod" class="big" placeholder="100045231" autocomplete="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="field">
+      <label>Cantidad Contada <span class="req">*</span></label>
+      <input type="number" id="fCant" class="big" placeholder="0" min="0" step="any">
+    </div>
+    <div class="field">
+      <label>Ubicación Física <span class="req">*</span></label>
+      <input type="text" id="fUbi" placeholder="Ej: EST-A3-N2" autocapitalize="characters">
+    </div>
+  </div>
+  <div class="card">
+    <div class="slabel">Fotografía</div>
+    <div class="foto-btn">
+      <input type="file" accept="image/*" capture="environment" id="fFoto" onchange="cargarFoto(this)">
+      <div id="fotoH"><div style="font-size:26px;">📷</div><div style="font-size:12px;color:var(--text2);margin-top:3px;">Toca para fotografiar</div></div>
+      <img class="foto-prev" id="fotoPrev" alt="">
+    </div>
+    <div style="margin-top:8px;"><button class="btn btn-ghost btn-sm" onclick="limpiarFoto()">✕ Quitar foto</button></div>
+  </div>
+  <div class="card">
+    <div class="slabel">Observaciones</div>
+    <div class="field"><textarea id="fObs" placeholder="Estado, anomalías, sin etiqueta..."></textarea></div>
+  </div>
+  <div class="card">
+    <div class="trow" onclick="toggleSF()">
+      <div class="tinfo"><strong>📅 Fechas y Lote</strong><span>Reactivos, químicos, lubricantes</span></div>
+      <div class="sw" id="sw"></div>
+    </div>
+    <div class="sf" id="sfC">
+      <div class="field-row">
+        <div class="field"><label>Fabricación</label><input type="date" id="fFab"></div>
+        <div class="field"><label>Vencimiento</label><input type="date" id="fVen"></div>
+      </div>
+      <div class="field"><label>Lote / Batch</label><input type="text" id="fLote" placeholder="LOT-2025-001"></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="guardarLibre()">🔒 Registrar y Sellar</button>
+  <div style="height:28px;"></div>
+</div>
+
+<!-- ══ PANEL: CONFIG ══ -->
+<div class="panel" id="panel-config">
+
+  <!-- Sesión -->
+  <div class="card">
+    <div class="slabel">Mi Sesión</div>
+    <div class="field"><label>Nombre</label><input type="text" id="cfgNom" readonly style="background:var(--bg);color:var(--text2);"></div>
+    <div class="field"><label>Rol</label>
+      <select id="cfgRol" onchange="guardarSesion()">
+        <option value="CONTADOR">Contador</option>
+        <option value="SUPERVISOR">Supervisor</option>
+        <option value="ANALISTA">Analista</option>
+      </select>
+    </div>
+    <div class="field"><label>Período / Inventario</label><input type="text" id="cfgPer" placeholder="Ej: INV-2025-01" oninput="guardarSesion()"></div>
+    <button class="btn btn-ghost btn-sm" onclick="cerrarSesion()" style="margin-top:4px;">🚪 Cerrar sesión</button>
+  </div>
+
+  <!-- Google Sheets -->
+  <div class="card">
+    <div class="slabel">Google Sheets — Sincronización</div>
+    <div class="sheets-status" id="sheetsStatus">
+      <div class="sheets-dot no" id="sheetsDot"></div>
+      <div style="flex:1;font-size:12px;" id="sheetsMsg">No configurado</div>
+    </div>
+    <div class="field">
+      <label>URL del Google Apps Script</label>
+      <input type="text" id="sheetsUrl" placeholder="https://script.google.com/macros/s/..." oninput="guardarSheetsUrl()">
+    </div>
+    <div style="background:var(--accent-l);border-radius:var(--r-sm);padding:12px;font-size:12px;color:#003dcc;line-height:1.6;margin-top:4px;">
+      <strong>📋 Cómo configurar:</strong><br>
+      1. Abre <strong>script.google.com</strong><br>
+      2. Nuevo proyecto → pega el código Apps Script<br>
+      3. Implementar → Aplicación web → Cualquiera puede acceder<br>
+      4. Copia la URL y pégala aquí<br>
+      <button class="btn btn-ghost btn-sm" onclick="mostrarAppsScript()" style="margin-top:8px;width:100%;">📄 Ver código Apps Script</button>
+    </div>
+    <button class="btn btn-ghost" onclick="probarConexion()" style="width:100%;margin-top:10px;">🔌 Probar conexión</button>
+    <button class="btn btn-primary" onclick="sincronizarSheets()" style="margin-top:8px;">☁️ Sincronizar ahora</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="slabel">Estadísticas</div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val" id="stTotal">0</div><div class="stat-lbl">Registros</div></div>
+      <div class="stat-box"><div class="stat-val" id="stFotos">0</div><div class="stat-lbl">Con Foto</div></div>
+      <div class="stat-box"><div class="stat-val" id="stObs">0</div><div class="stat-lbl">Con Obs.</div></div>
+      <div class="stat-box"><div class="stat-val" id="stPend" style="color:var(--warn)">0</div><div class="stat-lbl">Pendientes</div></div>
+    </div>
+    <button class="btn btn-green" onclick="exportarCSV()" style="margin-top:4px;">📊 Exportar Excel (.csv)</button>
+    <button class="btn btn-primary" onclick="exportarActa()" style="margin-top:8px;">📄 Acta Oficial</button>
+  </div>
+
+  <!-- Danger -->
+  <div class="dzone">
+    <div class="dzone-title">⚠️ Zona Peligrosa</div>
+    <div class="dzone-desc">Solo ejecutar al finalizar el inventario y haber exportado.</div>
+    <button class="btn btn-danger" onclick="limpiarConteos()" style="margin-bottom:8px;">🗑️ Limpiar mis conteos</button>
+    <button class="btn btn-danger" onclick="limpiarLM()">🗑️ Limpiar lista maestra</button>
+  </div>
+  <div style="height:28px;"></div>
+</div>
+
+</div><!-- /appShell -->
+
+<!-- MODAL: CARGAR LISTA SAP -->
+<div class="modal" id="mLM">
+  <div class="mbox">
+    <div class="mbox-title">📄 Cargar Lista Maestra SAP</div>
+    <div class="mbox-sub">
+      Una línea por material. Formato:<br>
+      <code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">CódigoSAP | Descripción | UM | Ubicación | Cantidad SAP</code><br><br>
+      Ejemplo:<br>
+      <code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">100045231 | RODAMIENTO SKF 6205 | UN | EST-A3-N2 | 5</code>
+    </div>
+    <div class="field">
+      <textarea id="lmInput" style="min-height:180px;font-family:var(--mono);font-size:12px;" placeholder="100045231 | RODAMIENTO SKF 6205 | UN | EST-A3-N2 | 5&#10;100045232 | SELLO MECANICO 1.5 | UN | EST-B1-N1 | 2&#10;100045233 | FILTRO ACEITE MOTOR | UN | TALLER-R4 | 8"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-ghost" onclick="cerrarLM()" style="flex:1;">Cancelar</button>
+      <button class="btn btn-primary" onclick="cargarLM()" style="flex:2;">✅ Cargar Lista</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: APPS SCRIPT CODE -->
+<div class="modal" id="mScript">
+  <div class="mbox">
+    <div class="mbox-title">📄 Código Google Apps Script</div>
+    <div class="mbox-sub">Copia este código en script.google.com → Nuevo proyecto → Reemplaza el contenido → Implementar como aplicación web.</div>
+    <textarea id="scriptCode" readonly style="width:100%;min-height:220px;font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;resize:none;"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn btn-ghost" onclick="document.getElementById('mScript').classList.remove('show')" style="flex:1;">Cerrar</button>
+      <button class="btn btn-primary" onclick="copiarScript()" style="flex:2;">📋 Copiar código</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════
+let registros = [];      // conteos realizados
+let listaMaestra = [];   // materiales a inventariar cargados por supervisor
+let sesion = { nombre:'', pin:'1234', rol:'CONTADOR', periodo:'' };
+let fotoB64 = null;
+let sfOn = false;
+let lmFiltro = 'todos';
+let sheetsUrl = '';
+let abierto = null; // id de tarjeta abierta en lista
+let lmFotos = {};  // fotos temporales por id de item {lmId: base64}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('load', () => {
+  try {
+    const r = localStorage.getItem('cSAP_reg');
+    const s = localStorage.getItem('cSAP_ses');
+    const l = localStorage.getItem('cSAP_lm');
+    const u = localStorage.getItem('cSAP_url');
+    if (r) registros = JSON.parse(r);
+    if (s) sesion = { ...sesion, ...JSON.parse(s) };
+    if (l) listaMaestra = JSON.parse(l);
+    if (u) { sheetsUrl = u; document.getElementById('sheetsUrl').value = u; actualizarSheetsStatus(); }
+  } catch(e){}
+});
+
+// ═══════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════
+function intentarLogin() {
+  const nom = document.getElementById('loginNom').value.trim();
+  if (!nom) { document.getElementById('loginErr').textContent = 'Ingresa tu nombre para continuar'; return; }
+  sesion.nombre = nom;
+  save();
+  document.getElementById('loginScreen').classList.add('hide');
+  document.getElementById('appShell').style.display = 'block';
+  aplicarSesion();
+  renderLM();
+}
+function cerrarSesion() {
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('loginScreen').classList.remove('hide');
+  document.getElementById('loginNom').value = '';
+  document.getElementById('loginErr').textContent = '';
+}
+
+// ═══════════════════════════════════════════
+// SESIÓN
+// ═══════════════════════════════════════════
+function aplicarSesion() {
+  document.getElementById('cfgNom').value = sesion.nombre;
+  document.getElementById('cfgRol').value = sesion.rol;
+  document.getElementById('cfgPer').value = sesion.periodo;
+  document.getElementById('sbNom').textContent = sesion.nombre || '—';
+  document.getElementById('sbRol').textContent = sesion.rol + (sesion.periodo ? ' · ' + sesion.periodo : '');
+  document.getElementById('hSub').textContent = sesion.periodo || 'Inventario Físico';
+}
+function guardarSesion() {
+  sesion.rol = document.getElementById('cfgRol').value;
+  sesion.periodo = document.getElementById('cfgPer').value.trim();
+  save();
+  aplicarSesion();
+}
+
+// ═══════════════════════════════════════════
+// PERSISTENCIA
+// ═══════════════════════════════════════════
+function save() {
+  localStorage.setItem('cSAP_reg', JSON.stringify(registros));
+  localStorage.setItem('cSAP_lm',  JSON.stringify(listaMaestra));
+  localStorage.setItem('cSAP_ses', JSON.stringify(sesion));
+  updateHeader();
+}
+function updateHeader() {
+  document.getElementById('hCount').textContent = registros.length;
+  updateStats();
+}
+
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
+function switchTab(t) {
+  const names = ['lista','misconteos','libre','config'];
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', names[i]===t));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+t).classList.add('active');
+  if (t==='lista') renderLM();
+  if (t==='misconteos') renderMisConteos();
+  if (t==='config') { updateStats(); aplicarSesion(); }
+}
+
+// ═══════════════════════════════════════════
+// LISTA MAESTRA — renderizado
+// ═══════════════════════════════════════════
+function abrirCargarLM() { document.getElementById('mLM').classList.add('show'); }
+function cerrarLM()      { document.getElementById('mLM').classList.remove('show'); }
+
+function cargarLM() {
+  const txt = document.getElementById('lmInput').value.trim();
+  if (!txt) { toast('⚠️ Ingresa materiales', 'err'); return; }
+  const lines = txt.split('\n').filter(l => l.trim());
+  const nuevos = []; let err = 0;
+  lines.forEach(line => {
+    const p = line.split('|').map(x => x.trim());
+    if (p.length >= 4) {
+      nuevos.push({
+        id: 'LM' + Date.now() + Math.random().toString(36).slice(2,6),
+        codigo: p[0].toUpperCase(),
+        descripcion: p[1].toUpperCase(),
+        um: p[2].toUpperCase(),
+        ubicacion: p[3],
+        qtySAP: p[4] ? parseFloat(p[4]) : null
+      });
+    } else err++;
+  });
+  if (!nuevos.length) { toast('⚠️ Formato incorrecto. Necesita al menos 4 columnas con |', 'err'); return; }
+  listaMaestra = [...listaMaestra, ...nuevos];
+  save(); cerrarLM();
+  document.getElementById('lmInput').value = '';
+  renderLM();
+  toast(`✅ ${nuevos.length} materiales cargados${err ? ' ('+err+' ignorados)' : ''}`, 'ok');
+}
+
+function filtrarLM(f) {
+  lmFiltro = f;
+  document.getElementById('fTodos').style.background = f==='todos' ? 'var(--accent-l)' : '';
+  document.getElementById('fTodos').style.color = f==='todos' ? 'var(--accent)' : '';
+  document.getElementById('fTodos').style.borderColor = f==='todos' ? 'var(--accent)' : '';
+  document.getElementById('fPend').style.background = f==='pendientes' ? 'var(--accent-l)' : '';
+  document.getElementById('fPend').style.color = f==='pendientes' ? 'var(--accent)' : '';
+  document.getElementById('fPend').style.borderColor = f==='pendientes' ? 'var(--accent)' : '';
+  renderLM();
+}
+
+function renderLM() {
+  const f = (document.getElementById('filtroLM').value || '').toLowerCase();
+  const el = document.getElementById('listaLM');
+
+  if (!listaMaestra.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div style="font-size:13px;">Sin lista cargada.<br>Toca "Cargar Lista SAP".</div></div>`;
+    actualizarProgreso(); return;
+  }
+
+  // Mapa de conteos por código (último conteo)
+  const cMap = {};
+  registros.forEach(r => { cMap[r.codigoRef || r.codigo] = r; });
+
+  let arr = listaMaestra.filter(i => {
+    if (f && !i.codigo.toLowerCase().includes(f) && !i.descripcion.toLowerCase().includes(f) && !i.ubicacion.toLowerCase().includes(f)) return false;
+    if (lmFiltro === 'pendientes' && cMap[i.codigo]) return false;
+    return true;
+  });
+
+  actualizarProgreso(cMap);
+
+  if (!arr.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">🔍</div><div style="font-size:13px;">Sin resultados.</div></div>`;
+    return;
+  }
+
+  el.innerHTML = arr.map(i => {
+    const conteo = cMap[i.codigo];
+    const diff = conteo && i.qtySAP !== null ? conteo.cantidad - i.qtySAP : null;
+    const estado = !conteo ? 'pendiente' : (diff !== 0 ? 'diferencia' : 'contado');
+    const isOpen = abierto === i.id;
+
+    return `<div class="cm-card ${estado} ${isOpen?'open':''}" id="cm-${i.id}">
+      <div class="cm-header" onclick="toggleCard('${i.id}')">
+        <div class="cm-status-dot"></div>
+        <div class="cm-main">
+          <div class="cm-code">${i.codigo}</div>
+          <div class="cm-desc">${i.descripcion}</div>
+        </div>
+        <div class="cm-right">
+          ${conteo
+            ? `<div class="cm-counted">✓ ${conteo.cantidad} ${i.um}</div>
+               ${diff!==null&&diff!==0?`<div class="cm-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${diff}</div>`:''}`
+            : `<div class="cm-sap-qty">${i.qtySAP ?? '—'}</div>
+               <div class="cm-um">${i.um} · SAP</div>`
+          }
+        </div>
+        <div class="cm-chevron">▼</div>
+      </div>
+      <div class="cm-form">
+        <div class="cm-info-row">
+          <span class="cm-badge cb-ubi">📍 ${i.ubicacion}</span>
+          <span class="cm-badge cb-um">${i.um}</span>
+          ${i.qtySAP!==null?`<span class="cm-badge cb-sap">SAP: ${i.qtySAP}</span>`:''}
+        </div>
+        <div class="cm-qty-row">
+          <div class="cm-qty-wrap">
+            <label>Cantidad Física <span style="color:var(--danger)">*</span></label>
+            <input class="cm-qty-input" type="number" min="0" step="any"
+              id="qty-${i.id}"
+              value="${conteo ? conteo.cantidad : ''}"
+              placeholder="0">
+          </div>
+          ${i.qtySAP!==null?`
+          <div class="cm-qty-sap">
+            <div class="cm-qty-sap-val">${i.qtySAP}</div>
+            <div class="cm-qty-sap-lbl">SAP</div>
+          </div>`:''}
+        </div>
+        <div class="cm-obs-wrap">
+          <label>Observaciones</label>
+          <textarea class="cm-obs-input" id="obs-${i.id}" placeholder="Estado del material, anomalías...">${conteo ? (conteo.observaciones||'') : ''}</textarea>
+        </div>
+        <label class="cm-foto-label">Fotografía</label>
+        ${conteo && conteo.foto
+          ? `<div class="cm-foto-prev-wrap">
+               <img class="cm-foto-prev" src="${conteo.foto}" alt="foto">
+               <button class="cm-foto-del" onclick="quitarFotoLM('${i.id}')">✕ Quitar</button>
+             </div>`
+          : `<div class="cm-foto-btn" id="fotoBtn-${i.id}">
+               <input type="file" accept="image/*" capture="environment"
+                 onchange="capturarFotoLM(this,'${i.id}')">
+               <span style="font-size:20px;">📷</span>
+               <span class="cm-foto-txt">Toca para fotografiar</span>
+             </div>`
+        }
+        <div class="cm-actions">
+          <button class="cm-save-btn" onclick="guardarDesdelLM('${i.id}')">🔒 Guardar conteo</button>
+          ${conteo?`<button class="cm-clear-btn" onclick="limpiarConteoLM('${i.id}')">✕</button>`:''}
+        </div>
+        ${conteo?`<div class="cm-saved-ts">🔒 ${conteo.tsFmt} · ${conteo.contador}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id) {
+  abierto = abierto === id ? null : id;
+  renderLM();
+  if (abierto) {
+    setTimeout(() => {
+      const el = document.getElementById('cm-'+id);
+      if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }, 50);
+  }
+}
+
+function guardarDesdelLM(lmId) {
+  const item = listaMaestra.find(i => i.id === lmId);
+  if (!item) return;
+  const qtyEl = document.getElementById('qty-' + lmId);
+  const obsEl = document.getElementById('obs-' + lmId);
+  const qty = qtyEl.value;
+  if (qty === '') { toast('⚠️ Ingresa la cantidad', 'err'); return; }
+  if (!sesion.nombre) { toast('⚠️ Configura tu nombre', 'err'); return; }
+
+  // Eliminar conteo anterior del mismo material si existe
+  registros = registros.filter(r => (r.codigoRef || r.codigo) !== item.codigo);
+
+  const now = new Date();
+  const reg = {
+    id: 'R' + Date.now(),
+    seq: registros.length + 1,
+    codigoRef: item.codigo,
+    codigo: item.codigo,
+    descripcion: item.descripcion,
+    um: item.um,
+    ubicacion: item.ubicacion,
+    ubicacionFisica: item.ubicacion,
+    cantidad: parseFloat(qty),
+    qtySAP: item.qtySAP,
+    diferencia: item.qtySAP !== null ? parseFloat(qty) - item.qtySAP : null,
+    observaciones: obsEl.value.trim(),
+    foto: null,
+    contador: sesion.nombre,
+    rol: sesion.rol,
+    periodo: sesion.periodo,
+    ts: now.toISOString(),
+    tsFmt: fmtDate(now),
+    fuente: 'lista',
+    inmutable: true
+  };
+  registros.push(reg);
+  save();
+  abierto = null;
+  renderLM();
+  toast('✅ Conteo guardado — ' + item.codigo, 'ok');
+  sincronizarSheets(true); // sync silencioso
+}
+
+function limpiarConteoLM(lmId) {
+  const item = listaMaestra.find(i => i.id === lmId);
+  if (!item) return;
+  if (!confirm('¿Eliminar el conteo de ' + item.codigo + '?')) return;
+  registros = registros.filter(r => (r.codigoRef || r.codigo) !== item.codigo);
+  save(); abierto = null; renderLM();
+  toast('Conteo eliminado', 'warn');
+}
+
+function actualizarProgreso(cMap) {
+  if (!cMap) cMap = {};
+  registros.forEach(r => { cMap[r.codigoRef || r.codigo] = r; });
+  const total = listaMaestra.length;
+  const contados = listaMaestra.filter(i => cMap[i.codigo]).length;
+  const diffs = listaMaestra.filter(i => {
+    const c = cMap[i.codigo];
+    return c && i.qtySAP !== null && c.cantidad !== i.qtySAP;
+  }).length;
+  const pend = total - contados;
+  const pct = total ? Math.round(contados/total*100) : 0;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progTxt').textContent = contados + ' / ' + total;
+  document.getElementById('psOk').textContent = contados;
+  document.getElementById('psDiff').textContent = diffs;
+  document.getElementById('psPend').textContent = pend;
+}
+
+// ═══════════════════════════════════════════
+// MIS CONTEOS
+// ═══════════════════════════════════════════
+function renderMisConteos() {
+  const f = (document.getElementById('filtroMC').value || '').toLowerCase();
+  const el = document.getElementById('listaMC');
+  const sub = document.getElementById('mcSub');
+  const arr = registros.filter(r => !f ||
+    r.codigo.toLowerCase().includes(f) ||
+    (r.ubicacion||'').toLowerCase().includes(f) ||
+    (r.descripcion||'').toLowerCase().includes(f)
+  );
+  sub.textContent = arr.length + ' registro' + (arr.length!==1?'s':'');
+  if (!arr.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📋</div><div style="font-size:13px;">${registros.length===0?'Sin conteos aún.':'Sin resultados.'}</div></div>`;
+    return;
+  }
+  el.innerHTML = [...arr].reverse().map(r => {
+    const diff = r.diferencia;
+    return `<div class="reg-card">
+      <div class="reg-top"><div class="reg-code">${r.codigo}</div><div class="reg-seq">#${r.seq}</div></div>
+      ${r.descripcion?`<div style="font-size:12px;color:var(--text2);margin-bottom:3px;">${r.descripcion}</div>`:''}
+      <div class="reg-qty">${r.cantidad} ${r.um||'UN'}</div>
+      <div class="reg-ubi">📍 ${r.ubicacion||r.ubicacionFisica||'—'}</div>
+      <div class="badges">
+        ${diff===null?'':diff===0?`<span class="badge b-green">✓ Sin diferencia</span>`:diff>0?`<span class="badge b-warn">+${diff} vs SAP</span>`:`<span class="badge b-red">${diff} vs SAP</span>`}
+        ${r.fuente==='libre'?`<span class="badge b-gray">Libre</span>`:''}
+      </div>
+      ${r.observaciones?`<div class="reg-obs">💬 ${r.observaciones}</div>`:''}
+      <div class="reg-ts">🔒 ${r.tsFmt} · ${r.contador}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// REGISTRO LIBRE (sin lista)
+// ═══════════════════════════════════════════
+function cargarFoto(inp) {
+  const f = inp.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    fotoB64 = e.target.result;
+    const p = document.getElementById('fotoPrev');
+    p.src = fotoB64; p.classList.add('show');
+    document.getElementById('fotoH').style.display = 'none';
+  };
+  rd.readAsDataURL(f);
+}
+function limpiarFoto() {
+  fotoB64 = null;
+  document.getElementById('fFoto').value = '';
+  document.getElementById('fotoPrev').classList.remove('show');
+  document.getElementById('fotoPrev').src = '';
+  document.getElementById('fotoH').style.display = 'block';
+}
+function toggleSF() {
+  sfOn = !sfOn;
+  document.getElementById('sw').classList.toggle('on', sfOn);
+  document.getElementById('sfC').classList.toggle('show', sfOn);
+}
+function guardarLibre() {
+  const cod  = document.getElementById('fCod').value.trim();
+  const cant = document.getElementById('fCant').value;
+  const ubi  = document.getElementById('fUbi').value.trim();
+  if (!cod||cant===''||!ubi) { toast('⚠️ Completa los campos obligatorios','err'); return; }
+  if (!sesion.nombre) { toast('⚠️ Configura tu nombre en Config','err'); return; }
+  const now = new Date();
+  const reg = {
+    id:'R'+Date.now(), seq:registros.length+1,
+    codigo:cod.toUpperCase(), descripcion:'',
+    um:'UN', ubicacion:ubi,
+    cantidad:parseFloat(cant), qtySAP:null, diferencia:null,
+    observaciones:document.getElementById('fObs').value.trim(),
+    foto:fotoB64,
+    fabricacion:document.getElementById('fFab').value,
+    vencimiento:document.getElementById('fVen').value,
+    lote:document.getElementById('fLote').value.trim(),
+    contador:sesion.nombre, rol:sesion.rol, periodo:sesion.periodo,
+    ts:now.toISOString(), tsFmt:fmtDate(now),
+    fuente:'libre', inmutable:true
+  };
+  registros.push(reg);
+  save();
+  ['fCod','fCant','fUbi','fObs','fFab','fVen','fLote'].forEach(id => document.getElementById(id).value='');
+  limpiarFoto(); if(sfOn) toggleSF();
+  toast('✅ Registro #'+reg.seq+' sellado','ok');
+  sincronizarSheets(true);
+}
+
+// ═══════════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════
+function guardarSheetsUrl() {
+  sheetsUrl = document.getElementById('sheetsUrl').value.trim();
+  localStorage.setItem('cSAP_url', sheetsUrl);
+  actualizarSheetsStatus();
+}
+function actualizarSheetsStatus() {
+  const dot = document.getElementById('sheetsDot');
+  const msg = document.getElementById('sheetsMsg');
+  if (!sheetsUrl) {
+    dot.className='sheets-dot no'; msg.textContent='No configurado'; return;
+  }
+  dot.className='sheets-dot ok'; msg.textContent='URL configurada — listo para sincronizar';
+}
+async function probarConexion() {
+  if (!sheetsUrl) { toast('⚠️ Primero configura la URL','err'); return; }
+  toast('🔌 Probando conexión...','warn');
+  try {
+    const r = await fetch(sheetsUrl+'?action=ping');
+    const d = await r.json();
+    if (d.status==='ok') toast('✅ Conexión exitosa','ok');
+    else toast('⚠️ Respuesta inesperada','err');
+  } catch(e) { toast('❌ Sin respuesta del servidor','err'); }
+}
+async function sincronizarSheets(silencioso=false) {
+  if (!sheetsUrl) {
+    if (!silencioso) toast('⚠️ Configura la URL de Google Sheets','err');
+    return;
+  }
+  if (!registros.length) { if(!silencioso) toast('⚠️ No hay registros','err'); return; }
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('syncing');
+  document.getElementById('syncStatus').textContent='⏳ Sincronizando...';
+  document.getElementById('syncStatus').className='sync-status pending';
+  try {
+    const payload = {
+      accion: 'guardarConteos',
+      periodo: sesion.periodo || 'SIN PERIODO',
+      contador: sesion.nombre,
+      timestamp: new Date().toISOString(),
+      registros: registros.map(r => ({
+        seq:r.seq, codigo:r.codigo, descripcion:r.descripcion||'',
+        um:r.um||'UN', ubicacion:r.ubicacion||'',
+        cantidadFisica:r.cantidad, cantidadSAP:r.qtySAP??'',
+        diferencia:r.diferencia??'', observaciones:r.observaciones||'',
+        contador:r.contador, timestamp:r.ts, fuente:r.fuente||'lista'
+      }))
+    };
+    const res = await fetch(sheetsUrl, {
+      method:'POST',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.status==='ok') {
+      document.getElementById('syncStatus').textContent='✅ Sync '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('syncStatus').className='sync-status ok';
+      if (!silencioso) toast('✅ Datos enviados a Google Sheets','ok');
+    } else throw new Error(data.message||'Error');
+  } catch(e) {
+    document.getElementById('syncStatus').textContent='❌ Error de sync';
+    document.getElementById('syncStatus').className='sync-status err';
+    if (!silencioso) toast('❌ Error al sincronizar: '+e.message,'err');
+  } finally {
+    btn.classList.remove('syncing');
+  }
+}
+
+// ═══════════════════════════════════════════
+// APPS SCRIPT CODE
+// ═══════════════════════════════════════════
+function mostrarAppsScript() {
+  const codigo = `// ConteoSAP — Google Apps Script
+// Pega este código en script.google.com
+// Implementar > Aplicación web > Cualquiera puede acceder
+
+const SHEET_NAME = 'ConteoSAP';
+
+function doGet(e) {
+  if (e.parameter.action === 'ping') {
+    return responder({ status: 'ok', msg: 'ConteoSAP conectado' });
+  }
+  return responder({ status: 'ok' });
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.accion === 'guardarConteos') {
+      guardarEnSheet(data);
+      return responder({ status: 'ok', guardados: data.registros.length });
+    }
+    return responder({ status: 'error', message: 'Acción desconocida' });
+  } catch(err) {
+    return responder({ status: 'error', message: err.toString() });
+  }
+}
+
+function guardarEnSheet(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    const headers = ['Período','Contador','Timestamp Sync','#','Código SAP',
+      'Descripción','UM','Ubicación','Cant. Física','Cant. SAP',
+      'Diferencia','Observaciones','Fuente','Timestamp Conteo'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setBackground('#0057ff').setFontColor('white').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  // Limpiar datos anteriores del mismo período/contador
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const vals = sheet.getRange(2,1,lastRow-1,2).getValues();
+    const toDelete = [];
+    vals.forEach((row,i) => {
+      if (row[0]===data.periodo && row[1]===data.contador) toDelete.push(i+2);
+    });
+    toDelete.reverse().forEach(r => sheet.deleteRow(r));
+  }
+  // Insertar nuevos registros
+  const now = new Date().toLocaleString('es');
+  const rows = data.registros.map(r => [
+    data.periodo, data.contador, now,
+    r.seq, r.codigo, r.descripcion, r.um, r.ubicacion,
+    r.cantidadFisica, r.cantidadSAP, r.diferencia,
+    r.observaciones, r.fuente, r.timestamp
+  ]);
+  if (rows.length > 0) {
+    sheet.getRange(sheet.getLastRow()+1, 1, rows.length, rows[0].length)
+      .setValues(rows);
+  }
+}
+
+function responder(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+  document.getElementById('scriptCode').value = codigo;
+  document.getElementById('mScript').classList.add('show');
+}
+function copiarScript() {
+  const txt = document.getElementById('scriptCode').value;
+  navigator.clipboard.writeText(txt).then(() => toast('✅ Código copiado','ok'));
+}
+
+// ═══════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stTotal').textContent = registros.length;
+  document.getElementById('stFotos').textContent = registros.filter(r=>r.foto).length;
+  document.getElementById('stObs').textContent   = registros.filter(r=>r.observaciones).length;
+  const cMap = {};
+  registros.forEach(r => { cMap[r.codigoRef||r.codigo]=r; });
+  document.getElementById('stPend').textContent  = listaMaestra.filter(i=>!cMap[i.codigo]).length;
+}
+
+// ═══════════════════════════════════════════
+// EXPORT CSV
+// ═══════════════════════════════════════════
+function exportarCSV() {
+  if (!registros.length) { toast('⚠️ No hay registros','err'); return; }
+  const H=['#','Código SAP','Descripción','UM','Ubicación','Cant. Física','Cant. SAP','Diferencia','Observaciones','Contador','Rol','Período','Timestamp'];
+  const R=registros.map(r=>[r.seq,r.codigo,r.descripcion||'',r.um||'UN',r.ubicacion||'',r.cantidad,r.qtySAP??'',r.diferencia??'',r.observaciones||'',r.contador,r.rol,r.periodo,r.ts]);
+  const csv=[H,...R].map(row=>row.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='ConteoSAP_'+(sesion.periodo||'inv').replace(/\s/g,'_')+'_'+hoy()+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('✅ Excel exportado','ok');
+}
+
+// ═══════════════════════════════════════════
+// EXPORT ACTA
+// ═══════════════════════════════════════════
+function exportarActa() {
+  if (!registros.length) { toast('⚠️ No hay registros','err'); return; }
+  const ahora = new Date().toLocaleString('es-CO');
+  let html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Acta Inventario</title>
+<style>body{font-family:Arial,sans-serif;font-size:11px;color:#111;margin:24px;}h1{font-size:18px;color:#0057ff;margin-bottom:4px;}.meta{color:#666;font-size:10px;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #0057ff;}table{width:100%;border-collapse:collapse;margin-bottom:24px;}th{background:#0057ff;color:white;padding:7px 8px;text-align:left;font-size:10px;}td{padding:6px 8px;border-bottom:1px solid #e0e3ea;font-size:10px;}tr:nth-child(even){background:#f8f9fa;}.dp{color:#00875a;font-weight:bold;}.dn{color:#de350b;font-weight:bold;}.footer{margin-top:30px;border-top:1px solid #ddd;padding-top:10px;color:#666;font-size:10px;}@media print{body{margin:12px;}}</style></head><body>
+<h1>📋 ACTA DE INVENTARIO FÍSICO — ConteoSAP</h1>
+<div class="meta">Período: <b>${sesion.periodo||'—'}</b> | Generado: <b>${ahora}</b> | Registros: <b>${registros.length}</b> | Contadores: <b>${[...new Set(registros.map(r=>r.contador))].join(', ')}</b></div>
+<table><thead><tr><th>#</th><th>Código SAP</th><th>Descripción</th><th>UM</th><th>Ubicación</th><th>Cant. Física</th><th>Cant. SAP</th><th>Diferencia</th><th>Observaciones</th><th>Contador</th><th>Timestamp</th></tr></thead><tbody>`;
+  registros.forEach(r=>{
+    const d=r.diferencia;
+    html+=`<tr><td>${r.seq}</td><td><b>${r.codigo}</b></td><td>${r.descripcion||'—'}</td><td>${r.um||'UN'}</td><td>${r.ubicacion||'—'}</td><td><b>${r.cantidad}</b></td><td>${r.qtySAP??'—'}</td><td class="${d===null?'':d>0?'dp':d<0?'dn':''}">${d===null?'—':d===0?'✓':(d>0?'+':'')+d}</td><td>${r.observaciones||'—'}</td><td>${r.contador}</td><td>${r.tsFmt}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  const pend=listaMaestra.filter(i=>!registros.find(r=>(r.codigoRef||r.codigo)===i.codigo));
+  if(pend.length){
+    html+=`<h3 style="color:#ff8b00;margin-bottom:8px;">⏳ Pendientes (${pend.length})</h3><table><thead><tr><th>Código SAP</th><th>Descripción</th><th>UM</th><th>Ubicación</th><th>Cant. SAP</th></tr></thead><tbody>`;
+    pend.forEach(i=>{html+=`<tr><td>${i.codigo}</td><td>${i.descripcion}</td><td>${i.um}</td><td>${i.ubicacion}</td><td>${i.qtySAP??'—'}</td></tr>`;});
+    html+=`</tbody></table>`;
+  }
+  html+=`<div class="footer">🔒 Registros sellados con timestamp. Generado por ConteoSAP.</div></body></html>`;
+  const w=window.open('','_blank'); w.document.write(html); w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+// ═══════════════════════════════════════════
+// LIMPIAR
+// ═══════════════════════════════════════════
+function limpiarConteos() {
+  if (!confirm('⚠️ ¿Eliminar todos los conteos?\n\nExporta primero.')) return;
+  if (!confirm('🔴 ¿Confirmar eliminación?')) return;
+  registros=[]; save(); renderMisConteos(); renderLM();
+  toast('🗑️ Conteos eliminados');
+}
+function limpiarLM() {
+  if (!confirm('⚠️ ¿Eliminar la lista maestra?')) return;
+  listaMaestra=[]; save(); renderLM();
+  toast('🗑️ Lista eliminada');
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function fmtDate(d){return d.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function hoy(){return new Date().toISOString().split('T')[0].replace(/-/g,'');}
+function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');setTimeout(()=>t.className='toast',2800);}
+</script>
+</body>
+</html>
