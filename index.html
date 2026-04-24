@@ -97,8 +97,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 @keyframes sd{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── FOTO ── */
-.foto-btn{width:100%;border:2px dashed var(--border2);border-radius:var(--r-sm);padding:16px;text-align:center;cursor:pointer;position:relative;background:var(--bg);transition:border-color .15s;}
-.foto-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+.foto-btn{width:100%;border:2px dashed var(--border2);border-radius:var(--r-sm);padding:16px;text-align:center;cursor:pointer;position:relative;background:var(--bg);transition:border-color .15s;overflow:hidden;}
+.foto-btn:active{border-color:var(--accent);background:var(--accent-l);}
+.foto-btn input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0;z-index:2;}
 .foto-prev{width:100%;max-height:150px;object-fit:cover;border-radius:var(--r-sm);display:none;}
 .foto-prev.show{display:block;}
 
@@ -175,13 +176,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
 /* FOTO EN TARJETA DE CONTEO */
 .cm-foto-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;margin-top:12px;display:block;}
-.cm-foto-btn{width:100%;border:2px dashed var(--border2);border-radius:var(--r-sm);padding:12px;text-align:center;cursor:pointer;position:relative;background:var(--bg);transition:border-color .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.cm-foto-btn{width:100%;border:2px dashed var(--border2);border-radius:var(--r-sm);padding:14px 12px;text-align:center;cursor:pointer;position:relative;background:var(--bg);transition:border-color .15s;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden;}
 .cm-foto-btn:active{border-color:var(--accent);background:var(--accent-l);}
-.cm-foto-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
-.cm-foto-txt{font-size:12px;color:var(--text2);}
+.cm-foto-btn input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0;z-index:2;}
+.cm-foto-txt{font-size:12px;color:var(--text2);pointer-events:none;}
+.cm-foto-ico{font-size:20px;pointer-events:none;}
 .cm-foto-prev-wrap{position:relative;margin-top:8px;}
-.cm-foto-prev{width:100%;max-height:140px;object-fit:cover;border-radius:var(--r-sm);border:1.5px solid var(--border);display:block;}
-.cm-foto-del{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:white;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;}
+.cm-foto-prev{width:100%;max-height:180px;object-fit:cover;border-radius:var(--r-sm);border:1.5px solid var(--border);display:block;}
+.cm-foto-del{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:white;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600;}
 
 /* ── REG CARDS (Mis Conteos) ── */
 .reg-card{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:13px;margin-bottom:9px;border-left:4px solid var(--accent);}
@@ -727,8 +729,8 @@ function renderLM() {
           : `<div class="cm-foto-btn" id="fotoBtn-${i.id}">
                <input type="file" accept="image/*" capture="environment"
                  onchange="capturarFotoLM(this,'${i.id}')">
-               <span style="font-size:20px;">📷</span>
-               <span class="cm-foto-txt">Toca para fotografiar</span>
+               <span class="cm-foto-ico">📷</span>
+               <span class="cm-foto-txt">Toca para fotografiar el material</span>
              </div>`
         }
         <div class="cm-actions">
@@ -951,8 +953,8 @@ function quitarFotoLM(lmId) {
     btn.id = 'fotoBtn-' + lmId;
     btn.innerHTML = `<input type="file" accept="image/*" capture="environment"
       onchange="capturarFotoLM(this,'${lmId}')">
-      <span style="font-size:20px;">📷</span>
-      <span class="cm-foto-txt">Toca para fotografiar</span>`;
+      <span class="cm-foto-ico">📷</span>
+      <span class="cm-foto-txt">Toca para fotografiar el material</span>`;
     wrap.replaceWith(btn);
   }
 }
@@ -1103,6 +1105,27 @@ async function sincronizarSheets(silencioso=false) {
   document.getElementById('syncStatus').textContent='⏳ Sincronizando...';
   document.getElementById('syncStatus').className='sync-status pending';
   try {
+    // 1) Subir fotos a Drive y obtener links
+    const fotoLinks = {};
+    const conFoto = registros.filter(r => r.foto);
+    for (const r of conFoto) {
+      try {
+        const fotoPayload = {
+          accion: 'subirFoto',
+          periodo: sesion.periodo || 'SIN PERIODO',
+          regId: r.id,
+          codigo: r.codigo,
+          contador: r.contador,
+          fotoBase64: r.foto.split(',')[1],        // quitar "data:image/jpeg;base64,"
+          mimeType: 'image/jpeg'
+        };
+        const fr = await fetch(sheetsUrl, { method:'POST', body: JSON.stringify(fotoPayload) });
+        const fd = await fr.json();
+        if (fd.status === 'ok' && fd.link) fotoLinks[r.id] = fd.link;
+      } catch(e) { /* si falla una foto, continúa */ }
+    }
+
+    // 2) Enviar conteos con links de fotos
     const payload = {
       accion: 'guardarConteos',
       periodo: sesion.periodo || 'SIN PERIODO',
@@ -1113,23 +1136,22 @@ async function sincronizarSheets(silencioso=false) {
         um:r.um||'UN', ubicacion:r.ubicacion||'',
         cantidadFisica:r.cantidad, cantidadSAP:r.qtySAP??'',
         diferencia:r.diferencia??'', observaciones:r.observaciones||'',
+        fotoLink: fotoLinks[r.id] || '',
         contador:r.contador, timestamp:r.ts, fuente:r.fuente||'lista'
       }))
     };
-    const res = await fetch(sheetsUrl, {
-      method:'POST',
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch(sheetsUrl, { method:'POST', body: JSON.stringify(payload) });
     const data = await res.json();
     if (data.status==='ok') {
+      const nFotos = Object.keys(fotoLinks).length;
       document.getElementById('syncStatus').textContent='✅ Sync '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
       document.getElementById('syncStatus').className='sync-status ok';
-      if (!silencioso) toast('✅ Datos enviados a Google Sheets','ok');
+      if (!silencioso) toast(`✅ Sincronizado${nFotos?` · ${nFotos} foto(s) en Drive`:''}`, 'ok');
     } else throw new Error(data.message||'Error');
   } catch(e) {
     document.getElementById('syncStatus').textContent='❌ Error de sync';
     document.getElementById('syncStatus').className='sync-status err';
-    if (!silencioso) toast('❌ Error al sincronizar: '+e.message,'err');
+    if (!silencioso) toast('❌ Error: '+e.message,'err');
   } finally {
     btn.classList.remove('syncing');
   }
@@ -1139,21 +1161,18 @@ async function sincronizarSheets(silencioso=false) {
 // APPS SCRIPT CODE
 // ═══════════════════════════════════════════
 function mostrarAppsScript() {
-  const codigo = `// ConteoSAP — Google Apps Script v2
+  const codigo = `// ConteoSAP — Google Apps Script v3
 // Pega este código en script.google.com
 // Implementar > Aplicación web > Cualquiera puede acceder
 
-const SHEET_CONTEOS = 'ConteoSAP';
-const SHEET_LISTA   = 'ListaMaestra';
+const SHEET_CONTEOS  = 'ConteoSAP';
+const SHEET_LISTA    = 'ListaMaestra';
+const DRIVE_FOLDER   = 'ConteoSAP_Fotos'; // carpeta en tu Drive
 
 function doGet(e) {
-  if (e.parameter.action === 'ping') {
-    return responder({ status: 'ok', msg: 'ConteoSAP conectado' });
-  }
-  if (e.parameter.action === 'obtenerLista') {
-    return obtenerLista();
-  }
-  return responder({ status: 'ok' });
+  if (e.parameter.action === 'ping')        return responder({ status:'ok', msg:'ConteoSAP v3' });
+  if (e.parameter.action === 'obtenerLista') return obtenerLista();
+  return responder({ status:'ok' });
 }
 
 function doPost(e) {
@@ -1161,25 +1180,57 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     if (data.accion === 'guardarConteos') {
       guardarConteos(data);
-      return responder({ status: 'ok', guardados: data.registros.length });
+      return responder({ status:'ok', guardados: data.registros.length });
     }
     if (data.accion === 'guardarLista') {
       guardarLista(data);
-      return responder({ status: 'ok', items: data.lista.length });
+      return responder({ status:'ok', items: data.lista.length });
     }
-    return responder({ status: 'error', message: 'Accion desconocida' });
+    if (data.accion === 'subirFoto') {
+      const link = subirFoto(data);
+      return responder({ status:'ok', link });
+    }
+    return responder({ status:'error', message:'Accion desconocida' });
   } catch(err) {
-    return responder({ status: 'error', message: err.toString() });
+    return responder({ status:'error', message: err.toString() });
   }
 }
 
-// ── Guardar lista maestra (publicada por supervisor) ──
+// ── Subir foto a Google Drive ──
+function subirFoto(data) {
+  const folder = obtenerCarpeta(data.periodo);
+  const nombre = data.codigo + '.jpg';
+  const blob = Utilities.newBlob(
+    Utilities.base64Decode(data.fotoBase64),
+    data.mimeType || 'image/jpeg',
+    nombre
+  );
+  // Eliminar foto anterior del mismo registro si existe
+  const existentes = folder.getFilesByName(nombre);
+  while (existentes.hasNext()) existentes.next().setTrashed(true);
+
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return 'https://drive.google.com/file/d/' + file.getId() + '/view';
+}
+
+// ── Obtener o crear carpeta en Drive ──
+function obtenerCarpeta(periodo) {
+  const raiz = DriveApp.getRootFolder();
+  // Carpeta principal ConteoSAP_Fotos
+  let principal;
+  const it1 = raiz.getFoldersByName(DRIVE_FOLDER);
+  principal = it1.hasNext() ? it1.next() : raiz.createFolder(DRIVE_FOLDER);
+  // Subcarpeta por período
+  const it2 = principal.getFoldersByName(periodo);
+  return it2.hasNext() ? it2.next() : principal.createFolder(periodo);
+}
+
+// ── Guardar lista maestra ──
 function guardarLista(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_LISTA);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_LISTA);
-  }
+  if (!sheet) sheet = ss.insertSheet(SHEET_LISTA);
   sheet.clearContents();
   const H = ['id','codigo','descripcion','um','ubicacion','qtySAP','periodo','publicado'];
   sheet.getRange(1,1,1,H.length).setValues([H])
@@ -1187,27 +1238,21 @@ function guardarLista(data) {
   sheet.setFrozenRows(1);
   if (data.lista.length > 0) {
     const now = new Date().toLocaleString('es');
-    const rows = data.lista.map(i => [
-      i.id, i.codigo, i.descripcion, i.um,
-      i.ubicacion, i.qtySAP, data.periodo, now
-    ]);
+    const rows = data.lista.map(i => [i.id, i.codigo, i.descripcion, i.um, i.ubicacion, i.qtySAP, data.periodo, now]);
     sheet.getRange(2,1,rows.length,rows[0].length).setValues(rows);
   }
 }
 
-// ── Obtener lista maestra (descargada por contadores) ──
+// ── Obtener lista maestra ──
 function obtenerLista() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_LISTA);
-  if (!sheet || sheet.getLastRow() < 2) {
-    return responder({ status: 'ok', lista: [] });
-  }
+  if (!sheet || sheet.getLastRow() < 2) return responder({ status:'ok', lista:[] });
   const data = sheet.getRange(2,1,sheet.getLastRow()-1,6).getValues();
-  const lista = data.filter(r => r[0]).map(r => ({
-    id: r[0], codigo: r[1], descripcion: r[2],
-    um: r[3], ubicacion: r[4], qtySAP: r[5]
+  const lista = data.filter(r=>r[0]).map(r => ({
+    id:r[0], codigo:r[1], descripcion:r[2], um:r[3], ubicacion:r[4], qtySAP:r[5]
   }));
-  return responder({ status: 'ok', lista });
+  return responder({ status:'ok', lista });
 }
 
 // ── Guardar conteos ──
@@ -1216,36 +1261,43 @@ function guardarConteos(data) {
   let sheet = ss.getSheetByName(SHEET_CONTEOS);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_CONTEOS);
-    const H = ['Periodo','Contador','Sync','#','Codigo SAP',
-      'Descripcion','UM','Ubicacion','Cant. Fisica','Cant. SAP',
-      'Diferencia','Observaciones','Fuente','Timestamp'];
+    const H = ['Periodo','Contador','Sync','#','Codigo SAP','Descripcion',
+      'UM','Ubicacion','Cant. Fisica','Cant. SAP','Diferencia',
+      'Observaciones','Foto (link)','Fuente','Timestamp'];
     sheet.getRange(1,1,1,H.length).setValues([H])
       .setBackground('#0057ff').setFontColor('white').setFontWeight('bold');
     sheet.setFrozenRows(1);
   }
+  // Eliminar filas anteriores del mismo período/contador
   const last = sheet.getLastRow();
   if (last > 1) {
     const vals = sheet.getRange(2,1,last-1,2).getValues();
     const del = [];
-    vals.forEach((r,i) => {
-      if (r[0]===data.periodo && r[1]===data.contador) del.push(i+2);
-    });
+    vals.forEach((r,i) => { if(r[0]===data.periodo && r[1]===data.contador) del.push(i+2); });
     del.reverse().forEach(r => sheet.deleteRow(r));
   }
   const now = new Date().toLocaleString('es');
   const rows = data.registros.map(r => [
     data.periodo, data.contador, now, r.seq, r.codigo,
     r.descripcion, r.um, r.ubicacion, r.cantidadFisica,
-    r.cantidadSAP, r.diferencia, r.observaciones, r.fuente, r.timestamp
+    r.cantidadSAP, r.diferencia, r.observaciones,
+    r.fotoLink || '', r.fuente, r.timestamp
   ]);
   if (rows.length > 0) {
-    sheet.getRange(sheet.getLastRow()+1,1,rows.length,rows[0].length).setValues(rows);
+    const rng = sheet.getRange(sheet.getLastRow()+1, 1, rows.length, rows[0].length);
+    rng.setValues(rows);
+    // Hacer clickeable la columna de foto (columna 13)
+    rows.forEach((row, i) => {
+      if (row[12]) {
+        const cell = sheet.getRange(sheet.getLastRow() - rows.length + 1 + i, 13);
+        cell.setFormula('=HYPERLINK("' + row[12] + '","📷 Ver foto")');
+      }
+    });
   }
 }
 
 function responder(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
+  return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }`;
   document.getElementById('scriptCode').value = codigo;
