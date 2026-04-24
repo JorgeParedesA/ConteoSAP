@@ -778,7 +778,7 @@ function guardarDesdelLM(lmId) {
     qtySAP: item.qtySAP,
     diferencia: item.qtySAP !== null ? parseFloat(qty) - item.qtySAP : null,
     observaciones: obsEl.value.trim(),
-    foto: null,
+    foto: lmFotos[lmId] || null,
     contador: sesion.nombre,
     rol: sesion.rol,
     periodo: sesion.periodo,
@@ -789,9 +789,11 @@ function guardarDesdelLM(lmId) {
   };
   registros.push(reg);
   save();
+  delete lmFotos[lmId]; // limpiar foto temporal
   abierto = null;
   renderLM();
-  toast('✅ Conteo guardado — ' + item.codigo, 'ok');
+  const fotoMsg = reg.foto ? ` · 📷 ${kbStr(reg.foto)}` : '';
+  toast('✅ Conteo guardado — ' + item.codigo + fotoMsg, 'ok');
   sincronizarSheets(true); // sync silencioso
 }
 
@@ -800,6 +802,7 @@ function limpiarConteoLM(lmId) {
   if (!item) return;
   if (!confirm('¿Eliminar el conteo de ' + item.codigo + '?')) return;
   registros = registros.filter(r => (r.codigoRef || r.codigo) !== item.codigo);
+  delete lmFotos[lmId];
   save(); abierto = null; renderLM();
   toast('Conteo eliminado', 'warn');
 }
@@ -842,12 +845,14 @@ function renderMisConteos() {
   el.innerHTML = [...arr].reverse().map(r => {
     const diff = r.diferencia;
     return `<div class="reg-card">
+      ${r.foto ? `<img src="${r.foto}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1.5px solid var(--border);float:right;margin-left:10px;cursor:pointer;" onclick="verFotoReg('${r.id}')" alt="foto">` : ''}
       <div class="reg-top"><div class="reg-code">${r.codigo}</div><div class="reg-seq">#${r.seq}</div></div>
       ${r.descripcion?`<div style="font-size:12px;color:var(--text2);margin-bottom:3px;">${r.descripcion}</div>`:''}
       <div class="reg-qty">${r.cantidad} ${r.um||'UN'}</div>
       <div class="reg-ubi">📍 ${r.ubicacion||r.ubicacionFisica||'—'}</div>
       <div class="badges">
         ${diff===null?'':diff===0?`<span class="badge b-green">✓ Sin diferencia</span>`:diff>0?`<span class="badge b-warn">+${diff} vs SAP</span>`:`<span class="badge b-red">${diff} vs SAP</span>`}
+        ${r.foto?`<span class="badge b-green">📷 ${kbStr(r.foto)}</span>`:''}
         ${r.fuente==='libre'?`<span class="badge b-gray">Libre</span>`:''}
       </div>
       ${r.observaciones?`<div class="reg-obs">💬 ${r.observaciones}</div>`:''}
@@ -859,23 +864,97 @@ function renderMisConteos() {
 // ═══════════════════════════════════════════
 // REGISTRO LIBRE (sin lista)
 // ═══════════════════════════════════════════
-function cargarFoto(inp) {
+
+// Comprime una imagen a máximo maxW×maxH px y calidad q (0-1)
+// Devuelve una Promise que resuelve con el base64 comprimido
+function comprimirFoto(file, maxW = 900, maxH = 900, q = 0.72) {
+  return new Promise((resolve, reject) => {
+    const rd = new FileReader();
+    rd.onerror = reject;
+    rd.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        // Calcular escala manteniendo proporción
+        let w = img.width, h = img.height;
+        if (w > maxW || h > maxH) {
+          const ratio = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', q));
+      };
+      img.src = e.target.result;
+    };
+    rd.readAsDataURL(file);
+  });
+}
+
+// Muestra tamaño legible
+function kbStr(b64) {
+  const bytes = Math.round(b64.length * 0.75 / 1024);
+  return bytes < 1024 ? bytes + ' KB' : (bytes/1024).toFixed(1) + ' MB';
+}
+
+// ── Foto en registro LIBRE ──
+async function cargarFoto(inp) {
   const f = inp.files[0]; if (!f) return;
-  const rd = new FileReader();
-  rd.onload = e => {
-    fotoB64 = e.target.result;
+  toast('📷 Comprimiendo foto...', 'warn');
+  try {
+    fotoB64 = await comprimirFoto(f);
     const p = document.getElementById('fotoPrev');
     p.src = fotoB64; p.classList.add('show');
     document.getElementById('fotoH').style.display = 'none';
-  };
-  rd.readAsDataURL(f);
+    toast(`✅ Foto lista — ${kbStr(fotoB64)}`, 'ok');
+  } catch(e) { toast('❌ Error al cargar foto', 'err'); }
 }
+
 function limpiarFoto() {
   fotoB64 = null;
   document.getElementById('fFoto').value = '';
   document.getElementById('fotoPrev').classList.remove('show');
   document.getElementById('fotoPrev').src = '';
   document.getElementById('fotoH').style.display = 'block';
+}
+
+// ── Foto en tarjetas de lista maestra ──
+async function capturarFotoLM(inp, lmId) {
+  const f = inp.files[0]; if (!f) return;
+  toast('📷 Comprimiendo foto...', 'warn');
+  try {
+    lmFotos[lmId] = await comprimirFoto(f);
+    // Reemplazar el área de foto sin re-renderizar toda la lista
+    const btn = document.getElementById('fotoBtn-' + lmId);
+    if (btn) {
+      const wrap = document.createElement('div');
+      wrap.className = 'cm-foto-prev-wrap';
+      wrap.id = 'fotoPrevWrap-' + lmId;
+      wrap.innerHTML = `<img class="cm-foto-prev" src="${lmFotos[lmId]}" alt="foto">
+        <button class="cm-foto-del" onclick="quitarFotoLM('${lmId}')">✕ Quitar</button>`;
+      btn.replaceWith(wrap);
+    }
+    toast(`✅ Foto lista — ${kbStr(lmFotos[lmId])}`, 'ok');
+  } catch(e) { toast('❌ Error al cargar foto', 'err'); }
+}
+
+function quitarFotoLM(lmId) {
+  delete lmFotos[lmId];
+  // Restaurar el botón de foto
+  const wrap = document.getElementById('fotoPrevWrap-' + lmId);
+  if (wrap) {
+    const btn = document.createElement('div');
+    btn.className = 'cm-foto-btn';
+    btn.id = 'fotoBtn-' + lmId;
+    btn.innerHTML = `<input type="file" accept="image/*" capture="environment"
+      onchange="capturarFotoLM(this,'${lmId}')">
+      <span style="font-size:20px;">📷</span>
+      <span class="cm-foto-txt">Toca para fotografiar</span>`;
+    wrap.replaceWith(btn);
+  }
 }
 function toggleSF() {
   sfOn = !sfOn;
@@ -1253,6 +1332,12 @@ function limpiarLM() {
 function fmtDate(d){return d.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 function hoy(){return new Date().toISOString().split('T')[0].replace(/-/g,'');}
 function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');setTimeout(()=>t.className='toast',2800);}
+function verFotoReg(id){
+  const r=registros.find(x=>x.id===id);
+  if(!r||!r.foto) return;
+  document.getElementById('mfotoImg').src=r.foto;
+  document.getElementById('mfoto').classList.add('show');
+}
 </script>
 </body>
 </html>
